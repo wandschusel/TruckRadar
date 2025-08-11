@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruckRadar</title>
+    <style>
+        /* CSS RESET & DEFAULTS */
+        :root {
+            --bg-color: #f4f7fa;
+            --fg-color: #1a1a1a;
+            --card-bg: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --primary-color: #007aff;
+            --primary-color-light: #e6f2ff;
+            --secondary-color: #5856d6;
+            --green: #34c759;
+            --yellow: #ffcc00;
+            --red: #ff3b30;
+            --grey-light: #e5e5ea;
+            --grey-medium: #c7c7cc;
+            --grey-dark: #8e8e93;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --border-radius: 12px;
+            --touch-target: 44px;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1c1c1e;
+            --fg-color: #f2f2f7;
+            --card-bg: #2c2c2e;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --primary-color-light: #2c2c2e;
+            --grey-light: #3a3a3c;
+            --grey-medium: #636366;
+            --grey-dark: #98989d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        button, input, select {
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        /* LAYOUT */
+        .app-container {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            grid-template-columns: auto 1fr;
+            height: 100vh;
+            width: 100vw;
+            grid-template-areas:
+                "header header"
+                "sidebar main"
+                "footer footer";
+        }
+
+        .app-header {
+            grid-area: header;
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--grey-light);
+            box-shadow: 0 2px 8px var(--shadow-color);
+            z-index: 1000;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .main-content {
+            grid-area: main;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            width: 320px;
+            background-color: var(--card-bg);
+            padding: 16px;
+            overflow-y: auto;
+            transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+            border-right: 1px solid var(--grey-light);
+            z-index: 900;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding: 16px 0;
+            transform: translateX(-100%);
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 48px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--grey-light);
+            border-left: none;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .app-footer {
+            grid-area: footer;
+            padding: 4px 16px;
+            font-size: 0.7em;
+            text-align: center;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--grey-light);
+            color: var(--grey-dark);
+            z-index: 1000;
+        }
+
+        /* HEADER COMPONENTS */
+        .logo { font-weight: bold; font-size: 1.2em; }
+        .search-input {
+            flex-grow: 1;
+            min-width: 150px;
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--grey-light);
+            background-color: var(--bg-color);
+        }
+        .truck-filters { display: flex; gap: 8px; align-items: center; }
+        .truck-filters input { width: 50px; text-align: center; }
+        .truck-filters label { font-size: 0.8em; color: var(--grey-dark); }
+        .header-button {
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            background-color: var(--primary-color-light);
+            color: var(--primary-color);
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .header-button:hover, .header-button:focus-visible { background-color: var(--grey-light); }
+        .dark-mode-toggle { font-size: 1.5em; line-height: 1; }
+
+        /* SIDEBAR COMPONENTS */
+        .filter-group h3 { margin-bottom: 12px; font-size: 1em; }
+        .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .chip {
+            padding: 6px 12px;
+            border-radius: 20px;
+            background-color: var(--primary-color-light);
+            color: var(--fg-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.9em;
+            user-select: none;
+            border: 1px solid var(--primary-color-light);
+        }
+        .chip.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .slider-group, .checkbox-group { margin-bottom: 24px; }
+        .slider-group label, .checkbox-group label { display: block; margin-bottom: 8px; }
+        .slider-group input[type="range"] { width: 100%; }
+        .stats { background-color: var(--bg-color); padding: 12px; border-radius: var(--border-radius); }
+        .stats p { margin-bottom: 8px; font-size: 0.9em; }
+        .stats strong { font-weight: 600; }
+
+        /* MAP */
+        #map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: grab;
+            background-color: var(--grey-medium);
+        }
+        #map-container:active { cursor: grabbing; }
+        #tile-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+        #tile-layer img {
+            position: absolute;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        #marker-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        .marker {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--primary-color);
+            border: 3px solid var(--card-bg);
+            box-shadow: 0 2px 5px var(--shadow-color);
+            pointer-events: all;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .marker:hover { transform: translate(-50%, -50%) scale(1.2); }
+        .marker.green { background-color: var(--green); }
+        .marker.yellow { background-color: var(--yellow); }
+        .marker.red { background-color: var(--red); color: var(--fg-color); }
+        .marker.cluster {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+        }
+        .route-polyline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .route-polyline path {
+            fill: none;
+            stroke: var(--secondary-color);
+            stroke-width: 5px;
+            stroke-opacity: 0.7;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+        .user-location-marker {
+             position: absolute;
+             width: 20px;
+             height: 20px;
+             border-radius: 50%;
+             background-color: var(--primary-color);
+             border: 3px solid white;
+             box-shadow: 0 0 0 3px var(--primary-color);
+             transform: translate(-50%, -50%);
+             pointer-events: none;
+        }
+
+        /* POPUP CARD */
+        .popup-card {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 16px var(--shadow-color);
+            padding: 16px;
+            z-index: 1100;
+            display: none; /* Hidden by default */
+        }
+        .popup-card.visible { display: block; }
+        .popup-card h3 { margin-bottom: 8px; font-size: 1.2em; }
+        .popup-card p { color: var(--grey-dark); font-size: 0.9em; margin-bottom: 12px; }
+        .popup-facilities { display: flex; gap: 12px; margin-bottom: 12px; }
+        .popup-facilities svg { width: 24px; height: 24px; fill: var(--fg-color); }
+        .popup-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; font-size: 0.9em; }
+        .popup-actions { display: flex; gap: 8px; }
+        .popup-actions button {
+            flex-grow: 1;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            min-height: var(--touch-target);
+        }
+        .btn-navigate { background-color: var(--primary-color); color: white; }
+        .btn-report { background-color: var(--grey-light); color: var(--fg-color); }
+        .popup-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            font-size: 1.5em;
+            line-height: 32px;
+            text-align: center;
+            border-radius: 50%;
+        }
+        .popup-close:hover { background-color: var(--grey-light); }
+
+        /* BOTTOM SHEET */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--grey-light);
+            border-top-left-radius: var(--border-radius);
+            border-top-right-radius: var(--border-radius);
+            box-shadow: 0 -4px 16px var(--shadow-color);
+            z-index: 800;
+            transform: translateY(calc(100% - 48px)); /* Handle height */
+            transition: transform 0.3s ease-in-out;
+        }
+        .bottom-sheet.visible {
+            transform: translateY(0);
+        }
+        .bottom-sheet-handle {
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .bottom-sheet-content {
+            padding: 0 16px 16px;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+        .stop-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--grey-light);
+        }
+        .stop-item:last-child { border-bottom: none; }
+        .stop-item h4 { font-size: 1em; }
+        .stop-item-details { display: flex; justify-content: space-between; font-size: 0.9em; color: var(--grey-dark); margin-top: 4px; }
+        .stop-item-chance { font-weight: bold; }
+        .stop-item-chance.green { color: var(--green); }
+        .stop-item-chance.yellow { color: var(--yellow); }
+        .stop-item-chance.red { color: var(--red); }
+        .bottom-sheet.hidden { display: none; }
+
+        /* DIALOGS */
+        dialog {
+            border: 1px solid var(--grey-light);
+            border-radius: var(--border-radius);
+            box-shadow: 0 8px 24px var(--shadow-color);
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            background: var(--card-bg);
+            color: var(--fg-color);
+        }
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        dialog h2 { margin-bottom: 16px; }
+        dialog form { display: flex; flex-direction: column; gap: 16px; }
+        .radio-group { display: flex; justify-content: space-around; gap: 8px; }
+        .radio-group label {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--grey-light);
+            border-radius: var(--border-radius);
+            text-align: center;
+            cursor: pointer;
+        }
+        .radio-group input:checked + label {
+            border-color: var(--primary-color);
+            background-color: var(--primary-color-light);
+            font-weight: bold;
+        }
+        .radio-group input { display: none; }
+        dialog textarea {
+            min-height: 80px;
+            padding: 8px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--grey-light);
+            background-color: var(--bg-color);
+            resize: vertical;
+        }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        .dialog-actions button {
+            padding: 10px 16px;
+            border-radius: var(--border-radius);
+        }
+        .btn-submit { background-color: var(--primary-color); color: white; }
+
+        /* RESPONSIVENESS */
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-columns: 0 1fr; /* Sidebar hidden by default */
+                grid-template-areas:
+                    "header header"
+                    "main main"
+                    "footer footer";
+            }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                height: 100vh;
+                transform: translateX(-100%);
+                box-shadow: 4px 0 16px var(--shadow-color);
+            }
+            .sidebar.visible {
+                transform: translateX(0);
+            }
+            .sidebar-toggle {
+                position: fixed;
+                top: 70px;
+                left: 0;
+                transform: none;
+                border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            }
+            .sidebar.visible .sidebar-toggle {
+                left: 320px;
+            }
+            .app-header { flex-direction: column; align-items: stretch; gap: 8px; }
+            .header-controls { display: flex; justify-content: space-between; gap: 8px; }
+            .truck-filters { flex-grow: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">TruckRadar</div>
+            <input type="text" id="destination-input" class="search-input" placeholder="Ziel eingeben...">
+            <div class="header-controls">
+                <div class="truck-filters">
+                    <label for="truck-height">H:</label>
+                    <input type="number" id="truck-height" value="4.0" step="0.1" min="2.0" max="5.0" title="LKW-Höhe in Metern">
+                    <label for="truck-weight">G:</label>
+                    <input type="number" id="truck-weight" value="40" step="1" min="3" max="60" title="LKW-Gewicht in Tonnen">
+                    <label for="truck-adr" title="Gefahrgut (ADR)">ADR</label>
+                    <input type="checkbox" id="truck-adr">
+                </div>
+                <button id="route-button" class="header-button">Route planen</button>
+                <button id="spots-along-route-button" class="header-button" style="display: none;">Spots an Route</button>
+                <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Dark Mode umschalten">🌓</button>
+                <button id="sidebar-toggle-mobile" class="header-button" style="display: none;">☰ Filter</button>
+            </div>
+        </header>
+
+        <aside class="sidebar" id="sidebar">
+            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Seitenleiste umschalten">&lt;</button>
+
+            <div class="filter-group">
+                <h3>Einrichtungen</h3>
+                <div class="filter-chips" id="facility-filters">
+                    <div class="chip" data-facility="wc">WC</div>
+                    <div class="chip" data-facility="shower">Dusche</div>
+                    <div class="chip" data-facility="security">Security</div>
+                    <div class="chip" data-facility="food">Restaurant</div>
+                    <div class="chip" data-facility="fuel">Tankstelle</div>
+                    <div class="chip" data-facility="lighting">Beleuchtung</div>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label for="min-security-slider">Mindest-Sicherheitslevel: <span id="min-security-value">0</span></label>
+                <input type="range" id="min-security-slider" min="0" max="3" value="0" step="1">
+            </div>
+
+            <div class="checkbox-group" id="along-route-filter-container" style="display: none;">
+                <label>
+                    <input type="checkbox" id="along-route-checkbox">
+                    Nur Spots &lt; 2 km von Route
+                </label>
+            </div>
+
+            <div class="stats">
+                <h3>Live-Statistiken</h3>
+                <p>Sichtbare Spots: <strong id="visible-spots-count">0</strong></p>
+                <p>Ø Frei-Prognose: <strong id="avg-prediction-value">-</strong></p>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="map-container">
+                <div id="tile-layer"></div>
+                <svg class="route-polyline" id="route-layer"></svg>
+                <div id="marker-layer"></div>
+                <div id="user-location-marker" class="user-location-marker" style="display: none;"></div>
+            </div>
+
+            <div class="popup-card" id="popup-card">
+                <button class="popup-close" id="popup-close-button" aria-label="Schließen">&times;</button>
+                <h3 id="popup-name"></h3>
+                <p id="popup-address"></p>
+                <div class="popup-facilities" id="popup-facilities"></div>
+                <div class="popup-stats">
+                    <div>Kapazität: <strong id="popup-capacity">-</strong></div>
+                    <div>Prognose bei Ankunft: <strong id="popup-prediction">-</strong></div>
+                </div>
+                <p>Letzte Meldungen: <span id="popup-last-reports">Keine</span></p>
+                <div class="popup-actions">
+                    <button id="popup-navigate-button" class="btn-navigate">Navigieren</button>
+                    <button id="popup-report-button" class="btn-report">Status melden</button>
+                </div>
+            </div>
+        </main>
+
+        <div class="bottom-sheet hidden" id="bottom-sheet">
+            <div class="bottom-sheet-handle" id="bottom-sheet-handle">
+                ▼ Top 3 Stopps entlang der Route ▲
+            </div>
+            <div class="bottom-sheet-content" id="bottom-sheet-content">
+                <!-- Content generated by JS -->
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            Prognosen ohne Gewähr. Beachte Beschilderung vor Ort. Kartendaten © OpenStreetMap-Mitwirkende.
+        </footer>
+    </div>
+
+    <dialog id="report-dialog">
+        <form id="report-form" method="dialog">
+            <h2 id="report-dialog-title">Status melden für...</h2>
+            <div class="radio-group">
+                <input type="radio" id="report-empty" name="status" value="empty" checked>
+                <label for="report-empty">Leer</label>
+
+                <input type="radio" id="report-some" name="status" value="some">
+                <label for="report-some">Teilweise</label>
+
+                <input type="radio" id="report-full" name="status" value="full">
+                <label for="report-full">Voll</label>
+            </div>
+            <textarea id="report-notes" placeholder="Optionale Notiz..."></textarea>
+            <div class="dialog-actions">
+                <button type="button" id="report-cancel-button">Abbrechen</button>
+                <button type="submit" id="report-submit-button" class="btn-submit">Senden</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- MOCK DATA -->
+    <script id="mock-spots" type="application/json">
+    [
+        {"id": "sp01", "name": "Rasthof Bad Bellingen", "lat": 47.73, "lng": 7.55, "capacity_total": 80, "max_height": 4.5, "facilities": ["wc", "shower", "food", "fuel", "lighting"], "security_level": 2},
+        {"id": "sp02", "name": "Parkplatz Neuenburg", "lat": 47.81, "lng": 7.56, "capacity_total": 30, "max_height": null, "facilities": ["wc", "lighting"], "security_level": 1},
+        {"id": "sp03", "name": "Rasthof Breisgau", "lat": 47.93, "lng": 7.69, "capacity_total": 120, "max_height": 4.8, "facilities": ["wc", "shower", "food", "fuel", "lighting", "security"], "security_level": 3},
+        {"id": "sp04", "name": "Parkplatz Kenzingen", "lat": 48.17, "lng": 7.78, "capacity_total": 40, "max_height": 4.2, "facilities": ["wc"], "security_level": 0},
+        {"id": "sp05", "name": "Rasthof Mahlberg", "lat": 48.30, "lng": 7.81, "capacity_total": 60, "facilities": ["wc", "shower", "food", "fuel", "lighting"], "security_level": 2},
+        {"id": "sp06", "name": "Parkplatz Lahr", "lat": 48.35, "lng": 7.84, "capacity_total": 25, "facilities": ["wc", "lighting"], "security_level": 1},
+        {"id": "sp07", "name": "Rasthof Ortenau", "lat": 48.51, "lng": 7.92, "capacity_total": 150, "max_height": 5.0, "facilities": ["wc", "shower", "food", "fuel", "lighting", "security"], "security_level": 3},
+        {"id": "sp08", "name": "Parkplatz Appenweier", "lat": 48.56, "lng": 7.97, "facilities": ["wc"], "security_level": 0},
+        {"id": "sp09", "name": "Rasthof Renchtal", "lat": 48.65, "lng": 8.01, "capacity_total": 70, "facilities": ["wc", "shower", "food", "fuel"], "security_level": 1},
+        {"id": "sp10", "name": "Parkplatz Bühl", "lat": 48.72, "lng": 8.10, "max_height": 4.0, "facilities": ["lighting"], "security_level": 1},
+        {"id": "sp11", "name": "Rasthof Baden-Baden", "lat": 48.81, "lng": 8.15, "capacity_total": 90, "facilities": ["wc", "shower", "food", "fuel", "lighting", "security"], "security_level": 2},
+        {"id": "sp12", "name": "Parkplatz Bruchsal", "lat": 49.15, "lng": 8.58, "capacity_total": 50, "facilities": ["wc", "food", "lighting"], "security_level": 1},
+        {"id": "sp13", "name": "Rasthof Hardtwald", "lat": 49.05, "lng": 8.45, "capacity_total": 110, "max_height": 4.6, "facilities": ["wc", "shower", "food", "fuel", "lighting", "security"], "security_level": 3},
+        {"id": "sp14", "name": "Fiktiver Spot Ost", "lat": 48.5, "lng": 8.5, "capacity_total": 10, "facilities": ["wc"], "security_level": 0},
+        {"id": "sp15", "name": "Fiktiver Spot West", "lat": 48.2, "lng": 7.2, "capacity_total": 15, "facilities": [], "security_level": 0}
+    ]
+    </script>
+    <script id="mock-reports" type="application/json">
+    []
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        'use strict';
+
+        // --- APPLICATION MODULES ---
+        const App = {
+            state: {
+                map: {
+                    center: { lat: 48.5, lng: 8.0 }, // Default center
+                    zoom: 9,
+                    isPanning: false,
+                    lastPan: { x: 0, y: 0 },
+                },
+                user: {
+                    location: null, // { lat, lng }
+                    destination: null, // { lat, lng, name }
+                },
+                route: {
+                    polyline: null, // [[lat, lng], ...]
+                    distance: 0, // in km
+                },
+                truckProfile: {
+                    height: 4.0,
+                    weight: 40,
+                    adr: false,
+                },
+                filters: {
+                    facilities: new Set(),
+                    minSecurity: 0,
+                    alongRoute: false,
+                },
+                ui: {
+                    activeSpotId: null,
+                    sidebarVisible: true,
+                    bottomSheetVisible: false,
+                }
+            },
+
+            data: {
+                spots: [],
+                reports: [],
+            },
+
+            dom: {}, // To store DOM element references
+
+            // --- UTILS MODULE ---
+            utils: {
+                // Haversine distance formula
+                haversineDistance: (coords1, coords2) => {
+                    const toRad = x => x * Math.PI / 180;
+                    const R = 6371; // Earth radius in km
+
+                    const dLat = toRad(coords2.lat - coords1.lat);
+                    const dLon = toRad(coords2.lng - coords1.lng);
+                    const lat1 = toRad(coords1.lat);
+                    const lat2 = toRad(coords2.lat);
+
+                    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    return R * c;
+                },
+
+                // Debounce function to limit rate of function calls
+                debounce: (func, delay) => {
+                    let timeout;
+                    return function(...args) {
+                        const context = this;
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => func.apply(context, args), delay);
+                    };
+                },
+
+                // Format numbers
+                formatKm: (km) => km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`,
+                formatMinutes: (min) => {
+                    if (min < 60) return `${Math.round(min)} min`;
+                    const h = Math.floor(min / 60);
+                    const m = Math.round(min % 60);
+                    return `${h}h ${m}m`;
+                },
+
+                // Clamp a number between min and max
+                clamp: (num, min, max) => Math.min(Math.max(num, min), min === max ? min : max),
+            },
+
+            // --- STORAGE MODULE ---
+            storage: {
+                saveState: () => {
+                    try {
+                        const stateToSave = {
+                            truckProfile: App.state.truckProfile,
+                            filters: { ...App.state.filters, facilities: Array.from(App.state.filters.facilities) },
+                            map: { center: App.state.map.center, zoom: App.state.map.zoom },
+                        };
+                        localStorage.setItem('truckRadarState', JSON.stringify(stateToSave));
+                    } catch (e) { console.error("Could not save state to localStorage", e); }
+                },
+                loadState: () => {
+                    try {
+                        const savedState = JSON.parse(localStorage.getItem('truckRadarState'));
+                        if (savedState) {
+                            if (savedState.truckProfile) App.state.truckProfile = savedState.truckProfile;
+                            if (savedState.filters) {
+                                App.state.filters = {
+                                    ...savedState.filters,
+                                    facilities: new Set(savedState.filters.facilities || [])
+                                };
+                            }
+                            if (savedState.map) App.state.map = { ...App.state.map, ...savedState.map };
+                        }
+                    } catch (e) { console.error("Could not load state from localStorage", e); }
+                },
+                getReports: () => {
+                    try {
+                        return JSON.parse(localStorage.getItem('truckRadarReports')) || [];
+                    } catch (e) { return []; }
+                },
+                addReport: (report) => {
+                    try {
+                        const reports = App.storage.getReports();
+                        reports.push(report);
+                        localStorage.setItem('truckRadarReports', JSON.stringify(reports));
+                        App.data.reports.push(report);
+                    } catch (e) { console.error("Could not save report", e); }
+                }
+            },
+
+            // --- PREDICTION MODULE ---
+            predict: {
+                predictAvailability: (spotId, etaDate) => {
+                    const reports = App.data.reports.filter(r => r.spot_id === spotId);
+                    const now = new Date();
+                    const arrivalTime = etaDate || now;
+
+                    if (reports.length === 0) return 60; // Default optimistic prediction
+
+                    // 1. Time-weighted average of reports
+                    let weightedSum = 0;
+                    let totalWeight = 0;
+                    const statusToValue = { "empty": 100, "some": 50, "full": 5 };
+
+                    reports.forEach(report => {
+                        const reportDate = new Date(report.timestampISO);
+                        const hoursAgo = (now - reportDate) / (1000 * 60 * 60);
+                        const weight = Math.exp(-0.1 * hoursAgo) * (report.reputation || 0.5); // Newer reports & higher rep have more weight
+
+                        weightedSum += statusToValue[report.status] * weight;
+                        totalWeight += weight;
+                    });
+
+                    const basePrediction = totalWeight > 0 ? weightedSum / totalWeight : 50;
+
+                    // 2. Time-of-day factor (more likely free at night)
+                    const arrivalHour = arrivalTime.getHours();
+                    let timeFactor = 1.0;
+                    if (arrivalHour >= 22 || arrivalHour <= 5) {
+                        timeFactor = 1.2; // 20% higher chance of being free
+                    } else if (arrivalHour >= 17 && arrivalHour < 21) {
+                        timeFactor = 0.7; // 30% lower chance during peak evening hours
+                    }
+
+                    // 3. Day-of-week factor (busier on weekdays)
+                    const day = arrivalTime.getDay(); // 0=Sun, 6=Sat
+                    let dayFactor = (day === 0 || day === 6) ? 1.1 : 0.9;
+
+                    let finalPrediction = basePrediction * timeFactor * dayFactor;
+                    return Math.round(App.utils.clamp(finalPrediction, 5, 99));
+                }
+            },
+
+            // --- ROUTING MODULE ---
+            routing: {
+                calculateRoute: () => {
+                    if (!App.state.user.location || !App.state.user.destination) {
+                        App.state.route.polyline = null;
+                        App.state.route.distance = 0;
+                        return;
+                    }
+                    // Simple straight line for mock routing
+                    App.state.route.polyline = [
+                        [App.state.user.location.lat, App.state.user.location.lng],
+                        [App.state.user.destination.lat, App.state.user.destination.lng]
+                    ];
+                    App.state.route.distance = App.utils.haversineDistance(App.state.user.location, App.state.user.destination);
+                },
+                getEta: (distanceKm) => {
+                    const avgSpeedKmh = 70;
+                    return (distanceKm / avgSpeedKmh) * 60; // in minutes
+                },
+                // Check if a spot is within a corridor of the route
+                isSpotAlongRoute: (spot, maxDistanceKm = 2) => {
+                    if (!App.state.route.polyline || App.state.route.polyline.length < 2) return false;
+
+                    const p = { x: spot.lng, y: spot.lat };
+                    const p1 = { x: App.state.route.polyline[0][1], y: App.state.route.polyline[0][0] };
+                    const p2 = { x: App.state.route.polyline[1][1], y: App.state.route.polyline[1][0] };
+
+                    const l2 = (p2.x - p1.x)**2 + (p2.y - p1.y)**2;
+                    if (l2 === 0) return App.utils.haversineDistance({lat: p.y, lng: p.x}, {lat: p1.y, lng: p1.x}) <= maxDistanceKm;
+
+                    let t = ((p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y)) / l2;
+                    t = Math.max(0, Math.min(1, t));
+
+                    const projection = {
+                        x: p1.x + t * (p2.x - p1.x),
+                        y: p1.y + t * (p2.y - p1.y)
+                    };
+
+                    const distKm = App.utils.haversineDistance({lat: p.y, lng: p.x}, {lat: projection.y, lng: projection.x});
+                    return distKm <= maxDistanceKm;
+                },
+                getDetour: (spot) => {
+                    if (!App.state.user.location) return {dist: 0, time: 0};
+                    const distToSpot = App.utils.haversineDistance(App.state.user.location, spot);
+                    const distSpotToDest = App.utils.haversineDistance(spot, App.state.user.destination);
+                    const detourDist = (distToSpot + distSpotToDest) - App.state.route.distance;
+                    return {
+                        dist: detourDist,
+                        time: App.routing.getEta(detourDist)
+                    };
+                }
+            },
+
+            // --- MAP MODULE ---
+            map: {
+                tileSize: 256,
+                tiles: {}, // Cache for tile DOM elements
+                minZoom: 5,
+                maxZoom: 18,
+
+                init: () => {
+                    const mapContainer = App.dom.mapContainer;
+                    mapContainer.addEventListener('mousedown', App.map.onPanStart);
+                    mapContainer.addEventListener('mousemove', App.map.onPanMove);
+                    mapContainer.addEventListener('mouseup', App.map.onPanEnd);
+                    mapContainer.addEventListener('mouseleave', App.map.onPanEnd);
+                    mapContainer.addEventListener('wheel', App.map.onZoom);
+
+                    // Touch events for mobile
+                    mapContainer.addEventListener('touchstart', (e) => App.map.onPanStart(e.touches[0]));
+                    mapContainer.addEventListener('touchmove', (e) => { e.preventDefault(); App.map.onPanMove(e.touches[0]); });
+                    mapContainer.addEventListener('touchend', App.map.onPanEnd);
+                },
+
+                latLngToPixel: (lat, lng, zoom) => {
+                    const n = Math.pow(2, zoom);
+                    const xtile = n * ((lng + 180) / 360);
+                    const ytile = n * (1 - (Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI)) / 2;
+                    return {
+                        x: xtile * App.map.tileSize,
+                        y: ytile * App.map.tileSize
+                    };
+                },
+
+                pixelToLatLng: (x, y, zoom) => {
+                    const n = Math.pow(2, zoom);
+                    const lon_deg = x / App.map.tileSize / n * 360.0 - 180.0;
+                    const lat_rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / App.map.tileSize / n)));
+                    const lat_deg = lat_rad * 180.0 / Math.PI;
+                    return { lat: lat_deg, lng: lon_deg };
+                },
+
+                render: () => {
+                    const { center, zoom } = App.state.map;
+                    const mapContainer = App.dom.mapContainer;
+                    const { width, height } = mapContainer.getBoundingClientRect();
+
+                    const centerPx = App.map.latLngToPixel(center.lat, center.lng, zoom);
+
+                    // Position tile and marker layers
+                    const offsetX = width / 2 - centerPx.x;
+                    const offsetY = height / 2 - centerPx.y;
+                    App.dom.tileLayer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                    App.dom.markerLayer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                    App.dom.routeLayer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                    if(App.dom.userLocationMarker.style.display !== 'none') {
+                        const userPx = App.map.latLngToPixel(App.state.user.location.lat, App.state.user.location.lng, zoom);
+                        App.dom.userLocationMarker.style.left = `${userPx.x}px`;
+                        App.dom.userLocationMarker.style.top = `${userPx.y}px`;
+                    }
+
+                    App.map.renderTiles();
+                    App.map.renderMarkers();
+                    App.map.renderRoute();
+                },
+
+                renderTiles: () => {
+                    const { center, zoom } = App.state.map;
+                    const mapContainer = App.dom.mapContainer;
+                    const { width, height } = mapContainer.getBoundingClientRect();
+
+                    const centerPx = App.map.latLngToPixel(center.lat, center.lng, zoom);
+
+                    const topLeftPx = { x: centerPx.x - width / 2, y: centerPx.y - height / 2 };
+                    const bottomRightPx = { x: centerPx.x + width / 2, y: centerPx.y + height / 2 };
+
+                    const startTileX = Math.floor(topLeftPx.x / App.map.tileSize);
+                    const startTileY = Math.floor(topLeftPx.y / App.map.tileSize);
+                    const endTileX = Math.ceil(bottomRightPx.x / App.map.tileSize);
+                    const endTileY = Math.ceil(bottomRightPx.y / App.map.tileSize);
+
+                    const newTiles = {};
+                    for (let x = startTileX; x < endTileX; x++) {
+                        for (let y = startTileY; y < endTileY; y++) {
+                            const tileId = `${zoom}/${x}/${y}`;
+                            newTiles[tileId] = true;
+                            if (!App.map.tiles[tileId]) {
+                                const tile = document.createElement('img');
+                                tile.src = `https://b.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+                                tile.style.left = `${x * App.map.tileSize}px`;
+                                tile.style.top = `${y * App.map.tileSize}px`;
+                                tile.style.width = `${App.map.tileSize}px`;
+                                tile.style.height = `${App.map.tileSize}px`;
+                                tile.setAttribute('alt', ''); // Decorative
+                                App.dom.tileLayer.appendChild(tile);
+                                App.map.tiles[tileId] = tile;
+                            }
+                        }
+                    }
+
+                    // Remove old tiles
+                    for (const tileId in App.map.tiles) {
+                        if (!newTiles[tileId]) {
+                            App.map.tiles[tileId].remove();
+                            delete App.map.tiles[tileId];
+                        }
+                    }
+                },
+
+                renderMarkers: () => {
+                    const { zoom } = App.state.map;
+                    const spots = App.getFilteredSpots();
+                    const markerLayer = App.dom.markerLayer;
+                    markerLayer.innerHTML = ''; // Clear previous markers
+
+                    const clusters = {};
+                    const clusterThreshold = 0.1 * Math.pow(2, 18 - zoom); // Dynamic clustering based on zoom
+
+                    if (zoom < 10) { // Clustering logic
+                        spots.forEach(spot => {
+                            let clustered = false;
+                            for (const clusterId in clusters) {
+                                const cluster = clusters[clusterId];
+                                const dist = App.utils.haversineDistance(spot, cluster.center);
+                                if (dist < clusterThreshold) {
+                                    cluster.spots.push(spot);
+                                    // Recalculate center (simple average)
+                                    cluster.center.lat = (cluster.center.lat * (cluster.spots.length - 1) + spot.lat) / cluster.spots.length;
+                                    cluster.center.lng = (cluster.center.lng * (cluster.spots.length - 1) + spot.lng) / cluster.spots.length;
+                                    clustered = true;
+                                    break;
+                                }
+                            }
+                            if (!clustered) {
+                                clusters[spot.id] = {
+                                    center: { lat: spot.lat, lng: spot.lng },
+                                    spots: [spot]
+                                };
+                            }
+                        });
+
+                        Object.values(clusters).forEach(cluster => {
+                            if (cluster.spots.length > 1) {
+                                App.map.createMarker(cluster.center, 'cluster', cluster.spots.length);
+                            } else {
+                                App.map.createMarker(cluster.spots[0], 'spot');
+                            }
+                        });
+
+                    } else { // No clustering at high zoom
+                        spots.forEach(spot => App.map.createMarker(spot, 'spot'));
+                    }
+                },
+
+                createMarker: (data, type, count = 0) => {
+                    const { zoom } = App.state.map;
+                    const marker = document.createElement('div');
+                    marker.className = 'marker';
+                    const pos = (type === 'spot') ? data : data;
+                    const px = App.map.latLngToPixel(pos.lat, pos.lng, zoom);
+                    marker.style.left = `${px.x}px`;
+                    marker.style.top = `${px.y}px`;
+
+                    if (type === 'cluster') {
+                        marker.classList.add('cluster');
+                        marker.textContent = count;
+                        marker.addEventListener('click', () => {
+                            App.map.zoomTo(data, zoom + 2);
+                        });
+                    } else { // It's a spot
+                        const spot = data;
+                        const prediction = App.predict.predictAvailability(spot.id);
+                        if (prediction > 75) marker.classList.add('green');
+                        else if (prediction > 35) marker.classList.add('yellow');
+                        else marker.classList.add('red');
+                        marker.dataset.spotId = spot.id;
+                        marker.addEventListener('click', () => App.ui.showPopup(spot.id));
+                    }
+                    App.dom.markerLayer.appendChild(marker);
+                },
+
+                renderRoute: () => {
+                    const routeLayer = App.dom.routeLayer;
+                    routeLayer.innerHTML = '';
+                    if (!App.state.route.polyline) return;
+
+                    const { zoom } = App.state.map;
+                    const points = App.state.route.polyline
+                        .map(p => App.map.latLngToPixel(p[0], p[1], zoom))
+                        .map(p => `${p.x},${p.y}`)
+                        .join(' ');
+
+                    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    polyline.setAttribute('points', points);
+                    routeLayer.appendChild(polyline);
+                },
+
+                onPanStart: (e) => {
+                    App.state.map.isPanning = true;
+                    App.state.map.lastPan = { x: e.clientX, y: e.clientY };
+                },
+
+                onPanMove: (e) => {
+                    if (!App.state.map.isPanning) return;
+                    const dx = e.clientX - App.state.map.lastPan.x;
+                    const dy = e.clientY - App.state.map.lastPan.y;
+                    App.state.map.lastPan = { x: e.clientX, y: e.clientY };
+
+                    const { zoom } = App.state.map;
+                    const centerPx = App.map.latLngToPixel(App.state.map.center.lat, App.state.map.center.lng, zoom);
+
+                    const newCenterPx = { x: centerPx.x - dx, y: centerPx.y - dy };
+                    App.state.map.center = App.map.pixelToLatLng(newCenterPx.x, newCenterPx.y, zoom);
+
+                    App.map.render();
+                },
+
+                onPanEnd: () => {
+                    App.state.map.isPanning = false;
+                    App.storage.saveState();
+                },
+
+                onZoom: (e) => {
+                    e.preventDefault();
+                    const { zoom, center } = App.state.map;
+                    const mapContainer = App.dom.mapContainer;
+                    const rect = mapContainer.getBoundingClientRect();
+
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    const centerPx = App.map.latLngToPixel(center.lat, center.lng, zoom);
+                    const mouseWorldX = centerPx.x - rect.width / 2 + mouseX;
+                    const mouseWorldY = centerPx.y - rect.height / 2 + mouseY;
+                    const mouseLatLng = App.map.pixelToLatLng(mouseWorldX, mouseWorldY, zoom);
+
+                    const delta = e.deltaY < 0 ? 1 : -1;
+                    const newZoom = App.utils.clamp(zoom + delta, App.map.minZoom, App.map.maxZoom);
+
+                    if (newZoom === zoom) return;
+
+                    // Zoom towards mouse pointer
+                    const newCenterPx = App.map.latLngToPixel(center.lat, center.lng, newZoom);
+                    const newMouseWorldPx = App.map.latLngToPixel(mouseLatLng.lat, mouseLatLng.lng, newZoom);
+
+                    const newCenter = App.map.pixelToLatLng(
+                        newCenterPx.x - (newMouseWorldPx.x - mouseWorldX),
+                        newCenterPx.y - (newMouseWorldPx.y - mouseWorldY),
+                        newZoom
+                    );
+
+                    App.state.map.zoom = newZoom;
+                    // App.state.map.center = newCenter; // This causes jitter, simpler is better
+
+                    App.map.render();
+                    App.storage.saveState();
+                },
+
+                zoomTo: (coords, zoomLevel) => {
+                    App.state.map.center = coords;
+                    App.state.map.zoom = App.utils.clamp(zoomLevel, App.map.minZoom, App.map.maxZoom);
+                    App.map.render();
+                    App.storage.saveState();
+                }
+            },
+
+            // --- UI MODULE ---
+            ui: {
+                init: () => {
+                    // Update UI from loaded state
+                    App.dom.truckHeight.value = App.state.truckProfile.height;
+                    App.dom.truckWeight.value = App.state.truckProfile.weight;
+                    App.dom.truckAdr.checked = App.state.truckProfile.adr;
+                    App.dom.minSecuritySlider.value = App.state.filters.minSecurity;
+                    App.dom.minSecurityValue.textContent = App.state.filters.minSecurity;
+                    App.state.filters.facilities.forEach(f => {
+                        const chip = App.dom.facilityFilters.querySelector(`[data-facility="${f}"]`);
+                        if (chip) chip.classList.add('active');
+                    });
+
+                    App.ui.updateSidebarVisibility();
+                    App.ui.checkScreenSize();
+                },
+
+                showPopup: (spotId) => {
+                    const spot = App.data.spots.find(s => s.id === spotId);
+                    if (!spot) return;
+
+                    App.state.ui.activeSpotId = spotId;
+
+                    const popup = App.dom.popupCard;
+                    popup.querySelector('#popup-name').textContent = spot.name;
+                    popup.querySelector('#popup-address').textContent = `${spot.lat.toFixed(4)}, ${spot.lng.toFixed(4)}`;
+                    popup.querySelector('#popup-capacity').textContent = spot.capacity_total || 'N/A';
+
+                    // ETA and Prediction
+                    let etaMins = 0;
+                    if (App.state.user.location) {
+                        const dist = App.utils.haversineDistance(App.state.user.location, spot);
+                        etaMins = App.routing.getEta(dist);
+                    }
+                    const etaDate = new Date(Date.now() + etaMins * 60 * 1000);
+                    const prediction = App.predict.predictAvailability(spot.id, etaDate);
+                    popup.querySelector('#popup-prediction').textContent = `${prediction}%`;
+
+                    // Facilities
+                    const facilitiesContainer = popup.querySelector('#popup-facilities');
+                    facilitiesContainer.innerHTML = '';
+                    const facilityIcons = {
+                        wc: `<svg viewBox="0 0 24 24"><path d="M4 4h16v14h-4v-2h2V6H6v10h2v2H4V4zm5 4h2v5h-2V8zm4 0h2v5h-2V8zm-2 7.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>`,
+                        shower: `<svg viewBox="0 0 24 24"><path d="M8 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM12 2a4 4 0 0 0-4 4v7h8V6a4 4 0 0 0-4-4z"/></svg>`,
+                        security: `<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>`,
+                        food: `<svg viewBox="0 0 24 24"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-8.97C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>`,
+                        fuel: `<svg viewBox="0 0 24 24"><path d="M18 6.45V18h-5V6.45c0-1.21.67-2.3 1.75-2.85L16 3l1.25.6c1.08.55 1.75 1.64 1.75 2.85zM6 4h3v12H6V4zm-2 0h1.5v12H4V4zm14 15H4v2h16v-2z"/></svg>`,
+                        lighting: `<svg viewBox="0 0 24 24"><path d="M13 3h-2v2h2V3zm4.2 2.8l-1.4 1.4 1.4 1.4 1.4-1.4-1.4-1.4zM12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm-8.2 3.8l-1.4 1.4 1.4 1.4 1.4-1.4-1.4-1.4zM12 21v-2h-2v2h2zm7-7h-2v2h2v-2z"/></svg>`
+                    };
+                    spot.facilities.forEach(f => {
+                        if (facilityIcons[f]) facilitiesContainer.innerHTML += facilityIcons[f];
+                    });
+
+                    // Last reports
+                    const lastReports = App.data.reports
+                        .filter(r => r.spot_id === spotId)
+                        .sort((a,b) => new Date(b.timestampISO) - new Date(a.timestampISO))
+                        .slice(0, 2)
+                        .map(r => `${r.status} (${new Date(r.timestampISO).toLocaleTimeString()})`)
+                        .join(', ');
+                    popup.querySelector('#popup-last-reports').textContent = lastReports || 'Keine';
+
+                    popup.classList.add('visible');
+                },
+
+                hidePopup: () => {
+                    App.dom.popupCard.classList.remove('visible');
+                    App.state.ui.activeSpotId = null;
+                },
+
+                showReportDialog: () => {
+                    const spotId = App.state.ui.activeSpotId;
+                    if (!spotId) return;
+                    const spot = App.data.spots.find(s => s.id === spotId);
+                    App.dom.reportDialogTitle.textContent = `Status melden für ${spot.name}`;
+                    App.dom.reportDialog.showModal();
+                },
+
+                submitReport: () => {
+                    const spotId = App.state.ui.activeSpotId;
+                    const status = App.dom.reportForm.querySelector('input[name="status"]:checked').value;
+                    const notes = App.dom.reportNotes.value;
+
+                    const newReport = {
+                        spot_id: spotId,
+                        timestampISO: new Date().toISOString(),
+                        status: status,
+                        notes: notes,
+                        reputation: 0.5 // Default for new reports
+                    };
+                    App.storage.addReport(newReport);
+                    App.dom.reportDialog.close();
+                    App.dom.reportForm.reset();
+                    App.updateAppView(); // Re-render to show new prediction
+                    App.ui.showPopup(spotId); // Re-open popup to show updated info
+                },
+
+                updateSidebarVisibility: () => {
+                    if (App.state.ui.sidebarVisible) {
+                        App.dom.sidebar.classList.add('visible');
+                        App.dom.sidebar.classList.remove('collapsed');
+                        App.dom.sidebarToggle.innerHTML = '&lt;';
+                        App.dom.sidebarToggle.setAttribute('aria-label', 'Seitenleiste einklappen');
+                    } else {
+                        App.dom.sidebar.classList.remove('visible');
+                        App.dom.sidebar.classList.add('collapsed');
+                        App.dom.sidebarToggle.innerHTML = '&gt;';
+                        App.dom.sidebarToggle.setAttribute('aria-label', 'Seitenleiste ausklappen');
+                    }
+                },
+
+                toggleSidebar: () => {
+                    App.state.ui.sidebarVisible = !App.state.ui.sidebarVisible;
+                    App.ui.updateSidebarVisibility();
+                },
+
+                updateBottomSheet: (spots) => {
+                    const sheet = App.dom.bottomSheet;
+                    if (spots.length === 0) {
+                        sheet.classList.add('hidden');
+                        return;
+                    }
+                    sheet.classList.remove('hidden');
+
+                    const content = App.dom.bottomSheetContent;
+                    content.innerHTML = '';
+
+                    spots.slice(0, 3).forEach(spot => {
+                        const detour = App.routing.getDetour(spot);
+                        const prediction = App.predict.predictAvailability(spot.id);
+                        const colorClass = prediction > 75 ? 'green' : (prediction > 35 ? 'yellow' : 'red');
+
+                        const item = document.createElement('div');
+                        item.className = 'stop-item';
+                        item.innerHTML = `
+                            <h4>${spot.name}</h4>
+                            <div class="stop-item-details">
+                                <span>Umweg: ${App.utils.formatKm(detour.dist)} / ${App.utils.formatMinutes(detour.time)}</span>
+                                <span class="stop-item-chance ${colorClass}">Frei: ${prediction}%</span>
+                            </div>
+                        `;
+                        item.addEventListener('click', () => {
+                            App.map.zoomTo(spot, 15);
+                            App.ui.showPopup(spot.id);
+                        });
+                        content.appendChild(item);
+                    });
+                },
+
+                toggleBottomSheet: () => {
+                    App.state.ui.bottomSheetVisible = !App.state.ui.bottomSheetVisible;
+                    App.dom.bottomSheet.classList.toggle('visible', App.state.ui.bottomSheetVisible);
+                },
+
+                updateStats: (spots) => {
+                    App.dom.visibleSpotsCount.textContent = spots.length;
+                    if (spots.length > 0) {
+                        const avgPrediction = spots.reduce((sum, spot) => sum + App.predict.predictAvailability(spot.id), 0) / spots.length;
+                        App.dom.avgPredictionValue.textContent = `${Math.round(avgPrediction)}%`;
+                    } else {
+                        App.dom.avgPredictionValue.textContent = '-';
+                    }
+                },
+
+                checkScreenSize: () => {
+                    const isMobile = window.innerWidth <= 768;
+                    App.dom.sidebarToggleMobile.style.display = isMobile ? 'block' : 'none';
+                    App.dom.sidebarToggle.style.display = isMobile ? 'none' : 'flex';
+                    if (isMobile) {
+                        App.state.ui.sidebarVisible = false;
+                        App.ui.updateSidebarVisibility();
+                    }
+                }
+            },
+
+            // --- MAIN APP LOGIC ---
+            init: () => {
+                // 1. Cache DOM elements
+                const ids = [
+                    'destination-input', 'truck-height', 'truck-weight', 'truck-adr',
+                    'route-button', 'spots-along-route-button', 'dark-mode-toggle', 'sidebar-toggle-mobile',
+                    'sidebar', 'sidebar-toggle', 'facility-filters', 'min-security-slider',
+                    'min-security-value', 'along-route-filter-container', 'along-route-checkbox',
+                    'visible-spots-count', 'avg-prediction-value', 'map-container', 'tile-layer',
+                    'marker-layer', 'route-layer', 'user-location-marker', 'popup-card', 'popup-close-button',
+                    'popup-navigate-button', 'popup-report-button', 'bottom-sheet', 'bottom-sheet-handle',
+                    'bottom-sheet-content', 'report-dialog', 'report-form', 'report-dialog-title',
+                    'report-cancel-button', 'report-submit-button', 'report-notes'
+                ];
+                ids.forEach(id => {
+                    const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+                    App.dom[camelCaseId] = document.getElementById(id);
+                });
+
+                // 2. Load data
+                App.data.spots = JSON.parse(document.getElementById('mock-spots').textContent);
+                // Generate random reports for demo purposes if localStorage is empty
+                if (App.storage.getReports().length === 0) {
+                    const statuses = ["empty", "some", "full"];
+                    for(let i=0; i<100; i++) {
+                        const spot = App.data.spots[Math.floor(Math.random() * App.data.spots.length)];
+                        const report = {
+                            spot_id: spot.id,
+                            timestampISO: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+                            status: statuses[Math.floor(Math.random() * statuses.length)],
+                            reputation: 0.5 + Math.random() * 0.2
+                        };
+                        App.storage.addReport(report);
+                    }
+                }
+                App.data.reports = App.storage.getReports();
+
+                // 3. Load state & initialize UI
+                App.storage.loadState();
+                App.ui.init();
+
+                // 4. Initialize map
+                App.map.init();
+
+                // 5. Set up event listeners
+                App.addEventListeners();
+
+                // 6. Get user location
+                App.getUserLocation();
+
+                // 7. Initial render
+                App.updateAppView();
+                App.map.render(); // First render
+
+                // 8. Geofencing mock
+                setInterval(App.mockGeofencing, 30000); // Check every 30 seconds
+            },
+
+            addEventListeners: () => {
+                const debouncedUpdate = App.utils.debounce(App.updateAppView, 300);
+
+                // Header
+                App.dom.destinationInput.addEventListener('change', App.handleDestinationChange);
+                App.dom.truckHeight.addEventListener('input', debouncedUpdate);
+                App.dom.truckWeight.addEventListener('input', debouncedUpdate);
+                App.dom.truckAdr.addEventListener('change', App.updateAppView);
+                App.dom.routeButton.addEventListener('click', App.handleRoutePlanning);
+                App.dom.spotsAlongRouteButton.addEventListener('click', () => {
+                    // Toggles the "along route" filter and highlights it
+                    App.dom.alongRouteCheckbox.checked = true;
+                    App.updateAppView();
+                });
+                App.dom.darkModeToggle.addEventListener('click', () => {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                });
+                App.dom.sidebarToggleMobile.addEventListener('click', App.ui.toggleSidebar);
+
+                // Sidebar
+                App.dom.sidebarToggle.addEventListener('click', App.ui.toggleSidebar);
+                App.dom.facilityFilters.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('chip')) {
+                        e.target.classList.toggle('active');
+                        App.updateAppView();
+                    }
+                });
+                App.dom.minSecuritySlider.addEventListener('input', (e) => {
+                    App.dom.minSecurityValue.textContent = e.target.value;
+                    debouncedUpdate();
+                });
+                App.dom.alongRouteCheckbox.addEventListener('change', App.updateAppView);
+
+                // Pop-up
+                App.dom.popupCloseButton.addEventListener('click', App.ui.hidePopup);
+                App.dom.popupNavigateButton.addEventListener('click', () => {
+                    const spot = App.data.spots.find(s => s.id === App.state.ui.activeSpotId);
+                    if (spot) {
+                        const url = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}`;
+                        window.open(url, '_blank');
+                    }
+                });
+                App.dom.popupReportButton.addEventListener('click', App.ui.showReportDialog);
+
+                // Report Dialog
+                App.dom.reportCancelButton.addEventListener('click', () => App.dom.reportDialog.close());
+                App.dom.reportForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    App.ui.submitReport();
+                });
+
+                // Bottom Sheet
+                App.dom.bottomSheetHandle.addEventListener('click', App.ui.toggleBottomSheet);
+
+                // Window
+                window.addEventListener('resize', App.utils.debounce(() => {
+                    App.ui.checkScreenSize();
+                    App.map.render();
+                }, 200));
+            },
+
+            updateAppView: () => {
+                console.log('Updating view...');
+                // 1. Update state from UI
+                App.state.truckProfile.height = parseFloat(App.dom.truckHeight.value);
+                App.state.truckProfile.weight = parseFloat(App.dom.truckWeight.value);
+                App.state.truckProfile.adr = App.dom.truckAdr.checked;
+                App.state.filters.minSecurity = parseInt(App.dom.minSecuritySlider.value);
+                App.state.filters.facilities = new Set(
+                    [...App.dom.facilityFilters.querySelectorAll('.chip.active')].map(c => c.dataset.facility)
+                );
+                App.state.filters.alongRoute = App.dom.alongRouteCheckbox.checked;
+
+                // 2. Get filtered spots
+                const filteredSpots = App.getFilteredSpots();
+
+                // 3. Update map markers
+                App.map.renderMarkers();
+
+                // 4. Update UI components
+                App.ui.updateStats(filteredSpots);
+
+                // 5. Update bottom sheet if route is active
+                if (App.state.route.polyline) {
+                    const spotsAlongRoute = App.data.spots
+                        .filter(s => App.routing.isSpotAlongRoute(s))
+                        .sort((a,b) => App.predict.predictAvailability(b.id) - App.predict.predictAvailability(a.id));
+                    App.ui.updateBottomSheet(spotsAlongRoute);
+                } else {
+                    App.ui.updateBottomSheet([]);
+                }
+
+                // 6. Save state
+                App.storage.saveState();
+            },
+
+            getFilteredSpots: () => {
+                const { truckProfile, filters } = App.state;
+                return App.data.spots.filter(spot => {
+                    // Height filter
+                    if (spot.max_height && spot.max_height < truckProfile.height) return false;
+                    // Security filter
+                    if (spot.security_level < filters.minSecurity) return false;
+                    // Facilities filter
+                    for (const facility of filters.facilities) {
+                        if (!spot.facilities.includes(facility)) return false;
+                    }
+                    // Along route filter
+                    if (filters.alongRoute && App.state.route.polyline) {
+                        if (!App.routing.isSpotAlongRoute(spot)) return false;
+                    }
+                    // ADR filter (simple: if ADR is required, assume spots with high security are candidates)
+                    if (truckProfile.adr && spot.security_level < 2) return false;
+
+                    return true;
+                });
+            },
+
+            getUserLocation: () => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        App.state.user.location = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        console.log('User location:', App.state.user.location);
+                        App.map.zoomTo(App.state.user.location, 13);
+                        const marker = App.dom.userLocationMarker;
+                        marker.style.display = 'block';
+                        App.map.render();
+                    },
+                    (error) => {
+                        console.warn('Could not get user location:', error.message);
+                        // Use default location
+                        App.state.user.location = { lat: 49.0069, lng: 8.4037 }; // Karlsruhe
+                        App.map.render();
+                    },
+                    { enableHighAccuracy: true }
+                );
+            },
+
+            handleDestinationChange: (e) => {
+                const query = e.target.value.trim();
+                if (!query) {
+                    App.state.user.destination = null;
+                    return;
+                }
+                // Mock Geocoding: Just use the first spot that matches the name, or a fixed location
+                const matchedSpot = App.data.spots.find(s => s.name.toLowerCase().includes(query.toLowerCase()));
+                if (matchedSpot) {
+                    App.state.user.destination = { ...matchedSpot, name: matchedSpot.name };
+                } else {
+                    // Fallback to a fixed point if no match
+                    App.state.user.destination = { lat: 47.9990, lng: 7.8421, name: query }; // Freiburg
+                }
+                console.log('Destination set to:', App.state.user.destination);
+            },
+
+            handleRoutePlanning: () => {
+                if (!App.state.user.location) {
+                    alert('Aktueller Standort nicht verfügbar.');
+                    return;
+                }
+                if (!App.state.user.destination) {
+                    alert('Bitte zuerst ein Ziel eingeben.');
+                    return;
+                }
+
+                App.routing.calculateRoute();
+                App.map.renderRoute();
+                App.updateAppView(); // Update everything based on the new route
+
+                // Show route-related UI
+                App.dom.alongRouteFilterContainer.style.display = 'block';
+                App.dom.spotsAlongRouteButton.style.display = 'inline-block';
+                App.dom.bottomSheet.classList.remove('hidden');
+            },
+
+            mockGeofencing: () => {
+                if (!App.state.user.location) return;
+
+                App.data.spots.forEach(spot => {
+                    const distance = App.utils.haversineDistance(App.state.user.location, spot);
+                    if (distance < 0.2) { // Less than 200m
+                        console.log(`Geofence triggered for ${spot.name}`);
+                        // In a real app, you'd prompt the user. Here we just log it.
+                        // Example: if (!confirm(`Nahe bei ${spot.name}. Status melden?`)) return;
+                    }
+                });
+            }
+        };
+
+        // --- START THE APP ---
+        App.init();
+
+    });
+    </script>
+
+</body>
+</html>
